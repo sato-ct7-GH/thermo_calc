@@ -36,6 +36,13 @@ h2{font-size:18px;margin:0 0 10px}
 .form-row select,.form-row input{font:inherit;font-size:17px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;min-height:46px}
 @media (max-width:560px){.form-row{grid-template-columns:1fr 1fr}.form-row label.name{grid-column:1/-1}}
 
+.mode-sw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.msw{font:inherit;font-weight:700;font-size:16px;min-height:50px;border-radius:12px;border:2px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.msw.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.mem-row{display:grid;grid-template-columns:120px 1fr;gap:10px;margin-top:10px;align-items:end}
+.mem-row .mem-lab{grid-column:1/-1;font-weight:700;font-size:14px;margin-bottom:-4px}
+.mem-row label{display:flex;flex-direction:column;font-size:13px;color:var(--sub);gap:4px}
+.mem-row input{font:inherit;font-size:17px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;min-height:46px;width:100%}
 /* タブ */
 .tabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0}
 .tab{font:inherit;border:2px solid var(--line);background:#fff;border-radius:12px;padding:10px 8px;text-align:left;cursor:pointer;min-height:64px;
@@ -171,6 +178,9 @@ const SYS = {
   cal: { u:'cal', cu:'cal/(g·℃)', Cu:'cal/℃', tu:'℃', tmp:'℃', cs:[0.2,0.25,0.4,0.5,0.6,0.8,1.0], water:1.0, nm:'cal' },
   J:   { u:'J',   cu:'J/(g·K)',  Cu:'J/K',   tu:'K', tmp:'K', cs:[0.45,0.90,2.0,2.4,2.5,4.2], water:4.2, nm:'J' }
 };
+// PW/GWモードでは型Aに固定（型Aが2つある問題は1つ目の型A）
+let FIX_TYPE_A = false;
+const typeA = p => FIX_TYPE_A || Math.random() < p;
 const DT = [10,15,20,25,30,40,50,60];
 const capList = [20,25,40,50,60,80,100,120,150,200,240,300];
 const cStr = c => nf(c);
@@ -186,7 +196,7 @@ function sh_findC(s){
   });
 }
 function sh_findCap(s){
-  if (Math.random() < 0.5){
+  if (typeA(0.5)){
     const p = until(() => ({ m:R(2,20)*10, c:pick(s.cs) }), p => isInt(p.m*p.c));
     const C = fix(p.m*p.c);
     return Q({
@@ -206,8 +216,8 @@ function sh_findCap(s){
   });
 }
 function sh_findQ(s){
-  if (Math.random() < 0.7){
-    const p = until(() => ({ m:R(2,20)*10, dT:pick([10,20,25,30,40,50,60]), c:pick(s.cs), heat:Math.random()<0.6 }), p => isInt(p.m*p.c*p.dT));
+  if (typeA(0.7)){
+    const p = until(() => ({ m:R(2,20)*10, dT:pick([10,20,25,30,40,50,60]), c:pick(s.cs), heat:typeA(0.6) }), p => isInt(p.m*p.c*p.dT));
     const base = s.u === 'J' ? R(28,31)*10 : R(1,6)*5;
     let T1, T2;
     if (p.heat){ T1 = base; T2 = base + p.dT; } else { T2 = base; T1 = base + p.dT; }
@@ -231,7 +241,7 @@ function sh_findQ(s){
   });
 }
 function sh_findDT(s){
-  if (Math.random() < 0.6){
+  if (typeA(0.6)){
     const p = until(() => ({ m:R(2,20)*10, dT:pick(DT), c:pick(s.cs) }), p => isInt(p.m*p.c*p.dT));
     const Qv = fix(p.m*p.c*p.dT);
     return Q({
@@ -614,22 +624,44 @@ const TABS = [
 // ==== UI ====
 const app = document.getElementById('app');
 const S = { tab:0, phase:'home', items:[], queue:[], first:{}, cur:null, answered:false, sendState:'', abortArm:false, editing:false,
-  student: loadStudent() };
+  student: null, form:null };
 
-function loadStudent(){ try { return JSON.parse(localStorage.getItem(APP_ID + '_student')) || { cls:'', num:'', name:'' }; } catch(e){ return { cls:'', num:'', name:'' }; } }
+// 生徒情報：mode = 'solo'（個人） / 'group'（PW/GW：最大3名・2名以上で開始可）
+const MAX_MEMBERS = 3, MIN_GROUP = 2;
+const emptyMembers = () => Array.from({ length: MAX_MEMBERS }, () => ({ num:'', name:'' }));
+function loadStudent(){
+  const blank = { mode:'solo', cls:'', members: emptyMembers() };
+  try {
+    const o = JSON.parse(localStorage.getItem(APP_ID + '_student'));
+    if (!o) return blank;
+    if (!o.members){ const m = emptyMembers(); m[0] = { num:o.num || '', name:o.name || '' }; return { mode:'solo', cls:o.cls || '', members:m }; } // 旧形式からの移行
+    const m = emptyMembers(); o.members.slice(0, MAX_MEMBERS).forEach((x, i) => m[i] = { num:x.num || '', name:x.name || '' });
+    return { mode: o.mode === 'group' ? 'group' : 'solo', cls:o.cls || '', members:m };
+  } catch(e){ return blank; }
+}
+S.student = loadStudent();
 function saveStudent(){ try { localStorage.setItem(APP_ID + '_student', JSON.stringify(S.student)); } catch(e){} }
-const studentOK = () => S.student.cls && S.student.num && S.student.name;
+const filled = m => String(m.num).trim() !== '' && String(m.name).trim() !== '';
+function activeMembers(st = S.student){
+  return st.mode === 'solo' ? (filled(st.members[0]) ? [st.members[0]] : []) : st.members.filter(filled);
+}
+const studentOK = () => !!S.student.cls && activeMembers().length >= (S.student.mode === 'solo' ? 1 : MIN_GROUP);
+const modeLabel = st => st.mode === 'solo' ? '個人' : 'PW/GW';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function renderMath(el){
   if (window.renderMathInElement) renderMathInElement(el, { delimiters:[{left:'\\(', right:'\\)', display:false}], throwOnError:false });
   else setTimeout(() => renderMath(el), 150);
 }
-function updateWho(){
-  const b = document.getElementById('whoBtn');
-  b.textContent = studentOK() ? `${S.student.cls}　${S.student.num}番　${S.student.name}` : '生徒情報 未入力';
+function whoText(){
+  const st = S.student, ms = activeMembers();
+  if (st.mode === 'solo') return `${st.cls}　${ms[0].num}番　${ms[0].name}`;
+  return `【PW/GW】${st.cls}　${ms.map(m => `${m.num}番 ${m.name}`).join('・')}`;
 }
-document.getElementById('whoBtn').addEventListener('click', () => { if (S.phase === 'home'){ S.editing = true; render(); } });
+function updateWho(){
+  document.getElementById('whoBtn').textContent = studentOK() ? whoText() : '生徒情報 未入力';
+}
+document.getElementById('whoBtn').addEventListener('click', () => { if (S.phase !== 'quiz'){ S.phase = 'home'; S.editing = true; S.form = null; render(); } });
 
 function render(){
   updateWho();
@@ -643,21 +675,49 @@ function tabsHTML(disabled){
   return `<div class="tabs">${TABS.map((t,i) => `<button class="tab ${i===S.tab?'active':''}" data-tab="${i}" ${disabled?'disabled':''}><span class="no">${t.no}</span><span class="nm">${t.name}</span></button>`).join('')}</div>`;
 }
 
+// 入力欄の内容をフォームの下書きに読み込む
+function readForm(){
+  const f = S.form, sel = document.getElementById('fCls');
+  if (!sel) return;
+  f.clsSel = sel.value; f.other = (document.getElementById('fOther') || {}).value || '';
+  const n = f.mode === 'solo' ? 1 : MAX_MEMBERS;
+  for (let i = 0; i < n; i++){
+    f.members[i].num = document.getElementById('fNum' + i).value.trim();
+    f.members[i].name = document.getElementById('fName' + i).value.trim();
+  }
+}
+function formHTML(){
+  const f = S.form, n = f.mode === 'solo' ? 1 : MAX_MEMBERS;
+  const rows = Array.from({ length:n }, (_, i) => `
+    <div class="mem-row">
+      ${f.mode === 'group' ? `<div class="mem-lab">${i+1}人目${i < MIN_GROUP ? '' : '<span class="muted">（任意）</span>'}</div>` : ''}
+      <label>出席番号<input id="fNum${i}" type="number" inputmode="numeric" min="1" max="50" value="${esc(f.members[i].num)}"></label>
+      <label>氏名<input id="fName${i}" type="text" value="${esc(f.members[i].name)}" placeholder="例）湘南 太郎"></label>
+    </div>`).join('');
+  return `<div class="card">
+      <h2>生徒情報</h2>
+      <div class="mode-sw">
+        <button type="button" class="msw ${f.mode==='solo'?'on':''}" data-mode="solo">👤 個人モード</button>
+        <button type="button" class="msw ${f.mode==='group'?'on':''}" data-mode="group">👥 PW/GWモード</button>
+      </div>
+      <div class="muted" style="margin:6px 0 10px">${f.mode === 'solo' ? '1人で解答します。' : 'ペア・グループで解答します。2名以上入力すると解答に進めます（最大3名）。結果は全員分記録されます。'}</div>
+      <div class="form-row" style="grid-template-columns:1fr">
+        <label>クラス<select id="fCls"><option value="">選択</option>${CLASSES.map(c => `<option ${c===f.clsSel?'selected':''}>${c}</option>`).join('')}</select></label>
+      </div>
+      <div id="otherWrap" style="margin-top:8px;${f.clsSel==='その他'?'':'display:none'}"><input id="fOther" type="text" placeholder="クラス名を入力" value="${esc(f.other)}" style="font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;width:100%"></div>
+      ${rows}
+      <div class="btns"><button class="btn primary small" id="saveSt">保存</button></div>
+    </div>`;
+}
 function renderHome(){
-  const st = S.student, showForm = S.editing || !studentOK();
-  const isOther = st.cls && !CLASSES.slice(0,-1).includes(st.cls);
+  const showForm = S.editing || !studentOK();
+  if (showForm && !S.form){
+    const st = S.student, isOther = st.cls && !CLASSES.slice(0,-1).includes(st.cls);
+    S.form = { mode:st.mode, clsSel: isOther ? 'その他' : st.cls, other: isOther ? st.cls : '', members: st.members.map(m => ({ ...m })) };
+  }
   const t = TABS[S.tab];
   app.innerHTML = `
-    ${showForm ? `<div class="card">
-      <h2>生徒情報</h2>
-      <div class="form-row">
-        <label>クラス<select id="fCls"><option value="">選択</option>${CLASSES.map(c => `<option ${ (c===st.cls || (c==='その他' && isOther)) ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>出席番号<input id="fNum" type="number" inputmode="numeric" min="1" max="50" value="${esc(st.num)}"></label>
-        <label class="name">氏名<input id="fName" type="text" value="${esc(st.name)}" placeholder="例）湘南 太郎"></label>
-      </div>
-      <div id="otherWrap" style="margin-top:8px;${isOther?'':'display:none'}"><input id="fOther" type="text" placeholder="クラス名を入力" value="${isOther?esc(st.cls):''}" style="font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;width:100%"></div>
-      <div class="btns"><button class="btn primary small" id="saveSt">保存</button></div>
-    </div>` : ''}
+    ${showForm ? formHTML() : ''}
     ${tabsHTML(false)}
     <div class="card intro">
       <h2>${t.no} ${t.name}</h2>
@@ -665,21 +725,37 @@ function renderHome(){
       <ul>${t.items.map(s => `<li>${s}</li>`).join('')}</ul>
       <div class="formula">${t.formula}</div>
       <div class="muted">間違えた問題は最後にもう一度出題され、全問正解で終了です。記録されるのは<b>1回目の正誤</b>です。</div>
-      <div class="btns"><button class="btn primary" id="startBtn" ${studentOK()?'':'disabled'}>学習を始める</button></div>
-      ${studentOK() ? '' : '<div class="muted" style="margin-top:6px">※先に生徒情報を入力・保存してください。</div>'}
+      <div class="btns"><button class="btn primary" id="startBtn" ${studentOK() && !showForm ? '' : 'disabled'}>学習を始める</button></div>
+      ${studentOK() && !showForm ? '' : '<div class="muted" style="margin-top:6px">※先に生徒情報を入力して「保存」を押してください。</div>'}
     </div>`;
-  app.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { S.tab = +b.dataset.tab; render(); }));
+  app.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { if (showForm) readForm(); S.tab = +b.dataset.tab; render(); }));
   if (showForm){
     const sel = document.getElementById('fCls');
     sel.addEventListener('change', () => { document.getElementById('otherWrap').style.display = sel.value === 'その他' ? '' : 'none'; });
-    document.getElementById('saveSt').addEventListener('click', () => {
-      let cls = sel.value; if (cls === 'その他') cls = document.getElementById('fOther').value.trim();
-      const num = document.getElementById('fNum').value.trim(), name = document.getElementById('fName').value.trim();
-      if (!cls || !num || !name){ alertBox('クラス・出席番号・氏名をすべて入力してください。'); return; }
-      S.student = { cls, num, name }; saveStudent(); S.editing = false; render();
-    });
+    app.querySelectorAll('.msw').forEach(b => b.addEventListener('click', () => { readForm(); S.form.mode = b.dataset.mode; render(); }));
+    document.getElementById('saveSt').addEventListener('click', saveForm);
   }
   document.getElementById('startBtn').addEventListener('click', startQuiz);
+}
+function saveForm(){
+  readForm();
+  const f = S.form;
+  const cls = f.clsSel === 'その他' ? f.other.trim() : f.clsSel;
+  if (!cls){ alertBox('クラスを選択してください。'); return; }
+  const n = f.mode === 'solo' ? 1 : MAX_MEMBERS, rows = f.members.slice(0, n);
+  const half = rows.findIndex(m => (m.num === '') !== (m.name === ''));
+  if (half >= 0){ alertBox(`${f.mode === 'solo' ? '' : (half + 1) + '人目の'}出席番号と氏名を両方入力してください。`); return; }
+  const ok = rows.filter(filled);
+  if (f.mode === 'solo' && ok.length < 1){ alertBox('出席番号と氏名を入力してください。'); return; }
+  if (f.mode === 'group' && ok.length < MIN_GROUP){ alertBox(`PW/GWモードでは${MIN_GROUP}名以上入力してください。`); return; }
+  const nums = ok.map(m => m.num);
+  if (new Set(nums).size !== nums.length){ alertBox('同じ出席番号が入力されています。'); return; }
+  // 空欄の行を詰めて保存（個人モードでは2・3人目の入力は保持したまま）
+  const members = emptyMembers();
+  if (f.mode === 'group') ok.forEach((m, i) => members[i] = { ...m });
+  else f.members.forEach((m, i) => members[i] = { ...m });
+  S.student = { mode:f.mode, cls, members };
+  saveStudent(); S.editing = false; S.form = null; render();
 }
 function alertBox(msg){
   let el = document.getElementById('msgBox');
@@ -688,6 +764,7 @@ function alertBox(msg){
 }
 
 function startQuiz(){
+  FIX_TYPE_A = S.student.mode === 'group';
   S.items = TABS[S.tab].gen();
   S.items.forEach((q, i) => { q.no = i + 1; q.retry = false; });
   S.queue = S.items.slice(); S.first = {}; S.sendState = ''; S.phase = 'quiz'; S.answered = false; S.abortArm = false;
@@ -751,6 +828,7 @@ function renderResult(){
     ${tabsHTML(false)}
     <div class="card">
       <h2>${t.no} ${t.name}　結果</h2>
+      <div class="muted" style="text-align:center">${esc(whoText())}</div>
       <div class="muted" style="text-align:center">1回目の正答数</div>
       <div class="score">${score} / ${N}</div>
       <table class="res"><tr><th>問</th><th>内容</th><th>1回目</th></tr>
@@ -775,29 +853,35 @@ function setStatus(msg, cls){
   if (el){ el.textContent = msg; el.className = 'status ' + (cls || ''); }
 }
 
-// GAS送信（GET・no-cors・最大3回リトライ）
+// GAS送信（GET・no-cors・最大3回リトライ）／PW・GWモードはメンバーごとに1件ずつ送信
 async function sendRecord(){
   const N = S.items.length, score = S.items.filter(q => S.first[q.no]).length, t = TABS[S.tab];
   if (!GAS_URL){ setStatus('送信先（GAS URL）が未設定のため、記録は送信されていません。', 'ng'); return; }
-  const params = new URLSearchParams({
-    app: APP_ID, section: `${t.no}${t.name}`,
-    cls: S.student.cls, num: S.student.num, name: S.student.name,
-    score: String(score), total: String(N),
-    qids: S.items.map(q => q.no).join(','),
-    labels: S.items.map(q => q.label).join('|')
-  });
-  S.items.forEach(q => params.append('q' + q.no, S.first[q.no] ? '○' : '×'));
-  setStatus('記録を送信しています…');
-  for (let k = 1; k <= 3; k++){
-    try {
-      await fetch(GAS_URL + '?' + params.toString(), { method:'GET', mode:'no-cors', cache:'no-store' });
-      setStatus(`✅ 記録を送信しました（${S.student.cls} ${S.student.num}番 ${S.student.name}／${score}/${N}）`, 'ok');
-      return;
-    } catch(e){
-      if (k < 3){ setStatus(`送信に失敗しました。再試行中…（${k}/3）`); await new Promise(r => setTimeout(r, 1200*k)); }
+  const st = S.student, ms = activeMembers(st);
+  const groupStr = ms.map(m => `${m.num}番 ${m.name}`).join('・');
+  const sendOne = async m => {
+    const params = new URLSearchParams({
+      app: APP_ID, section: `${t.no}${t.name}`,
+      cls: st.cls, num: m.num, name: m.name,
+      mode: modeLabel(st), group: st.mode === 'group' ? groupStr : '',
+      score: String(score), total: String(N),
+      qids: S.items.map(q => q.no).join(','),
+      labels: S.items.map(q => q.label).join('|')
+    });
+    S.items.forEach(q => params.append('q' + q.no, S.first[q.no] ? '○' : '×'));
+    for (let k = 1; k <= 3; k++){
+      try { await fetch(GAS_URL + '?' + params.toString(), { method:'GET', mode:'no-cors', cache:'no-store' }); return true; }
+      catch(e){ if (k < 3) await new Promise(r => setTimeout(r, 1200*k)); }
     }
+    return false;
+  };
+  const failed = [];
+  for (let i = 0; i < ms.length; i++){
+    setStatus(`記録を送信しています…${ms.length > 1 ? `（${i+1}/${ms.length}人目）` : ''}`);
+    if (!(await sendOne(ms[i]))) failed.push(ms[i]);
   }
-  setStatus('❌ 送信できませんでした。通信環境を確認して「記録を再送信」を押してください。', 'ng');
+  if (!failed.length) setStatus(`✅ 記録を送信しました（${st.cls}　${groupStr}／${score}/${N}）`, 'ok');
+  else setStatus(`❌ ${failed.map(m => m.name).join('・')} の記録を送信できませんでした。通信環境を確認して「記録を再送信」を押してください。`, 'ng');
 }
 
 render();
