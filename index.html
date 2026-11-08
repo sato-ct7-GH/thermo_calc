@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>熱力学 計算問題 学習アプリ</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbf7f3; --card:#ffffff; --ink:#2b2420; --sub:#7a6c62; --line:#eadfd5;
+  --accent:#d9480f; --accent2:#f08c00; --accent-soft:#fff1e6;
+  --ok:#2b8a3e; --ok-soft:#e6f6ea; --ng:#c92a2a; --ng-soft:#fdeaea;
+  --radius:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:'Noto Sans JP',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;font-size:17px;
+  padding-bottom:env(safe-area-inset-bottom)}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(90deg,#c2410c,#e8590c 60%,#f08c00);color:#fff;
+  padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+header .title{font-weight:700;font-size:19px;letter-spacing:.02em}
+header .mode{font-size:12px;background:rgba(255,255,255,.22);border-radius:999px;padding:2px 10px}
+header .who{margin-left:auto;font-size:14px;background:rgba(0,0,0,.15);border-radius:999px;padding:4px 12px;border:none;color:#fff;cursor:pointer}
+main{max-width:860px;margin:0 auto;padding:14px 14px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin:12px 0;box-shadow:0 1px 3px rgba(60,30,10,.05)}
+h2{font-size:18px;margin:0 0 10px}
+.muted{color:var(--sub);font-size:14px}
+
+/* 生徒情報 */
+.form-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.form-row label{display:flex;flex-direction:column;font-size:13px;color:var(--sub);gap:4px}
+.form-row select,.form-row input{font:inherit;font-size:17px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;min-height:46px}
+@media (max-width:560px){.form-row{grid-template-columns:1fr 1fr}.form-row label.name{grid-column:1/-1}}
+
+/* タブ */
+.tabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0}
+.tab{font:inherit;border:2px solid var(--line);background:#fff;border-radius:12px;padding:10px 8px;text-align:left;cursor:pointer;min-height:64px;
+  display:flex;gap:8px;align-items:center;color:var(--ink)}
+.tab .no{font-size:22px;font-weight:700;color:var(--accent);min-width:28px;text-align:center}
+.tab .nm{font-size:14px;font-weight:500;line-height:1.35}
+.tab.active{border-color:var(--accent);background:var(--accent-soft)}
+.tab:disabled{opacity:.45;cursor:not-allowed}
+
+.intro ul{margin:6px 0 0;padding-left:1.2em}
+.intro li{margin:2px 0}
+.formula{background:#fff8f0;border-left:4px solid var(--accent2);padding:8px 12px;border-radius:6px;margin:10px 0;font-size:15px}
+.btn{font:inherit;font-weight:700;border:none;border-radius:12px;padding:12px 22px;min-height:50px;cursor:pointer;font-size:17px}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:disabled{background:#d6c7bb;cursor:not-allowed}
+.btn.ghost{background:#fff;border:2px solid var(--line);color:var(--ink)}
+.btn.small{padding:8px 14px;min-height:40px;font-size:14px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+
+/* 出題 */
+.qhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.chip{font-size:12px;border-radius:999px;padding:2px 10px;background:var(--accent-soft);color:var(--accent);font-weight:700}
+.chip.retry{background:#fff3bf;color:#8a5a00}
+.progress{height:8px;background:#f1e7de;border-radius:99px;overflow:hidden;margin:6px 0 4px}
+.progress>div{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .3s}
+.ctx{background:#faf6f2;border:1px dashed #e0cfc0;border-radius:10px;padding:10px 14px;margin:8px 0;font-size:16px}
+.fig{text-align:center;margin:8px 0}
+.fig svg{max-width:100%;height:auto}
+.qtext{font-size:18px;font-weight:500;margin:10px 0 12px}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:560px){.choices{grid-template-columns:1fr}}
+.choice{font:inherit;font-size:17px;text-align:left;background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;min-height:58px;cursor:pointer;
+  display:flex;gap:10px;align-items:center;color:var(--ink)}
+.choice .mk{flex:0 0 28px;height:28px;border-radius:50%;background:#f3ebe4;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--sub)}
+.choice.correct{border-color:var(--ok);background:var(--ok-soft)}
+.choice.correct .mk{background:var(--ok);color:#fff}
+.choice.wrong{border-color:var(--ng);background:var(--ng-soft)}
+.choice.wrong .mk{background:var(--ng);color:#fff}
+.choice:disabled{cursor:default}
+.fb{margin-top:14px;border-radius:12px;padding:12px 14px}
+.fb.ok{background:var(--ok-soft);border:1px solid #b2dfbd}
+.fb.ng{background:var(--ng-soft);border:1px solid #f3b9b9}
+.fb .head{font-weight:700;margin-bottom:4px}
+.fb .exp{font-size:16px}
+
+/* 結果 */
+.score{font-size:40px;font-weight:700;color:var(--accent);text-align:center;margin:4px 0}
+table.res{width:100%;border-collapse:collapse;font-size:15px;margin-top:8px}
+table.res th{white-space:nowrap}
+table.res th,table.res td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+table.res td.m{text-align:center;font-weight:700;width:48px}
+.okc{color:var(--ok)} .ngc{color:var(--ng)}
+.status{margin-top:12px;padding:10px 12px;border-radius:10px;background:#f4f1ee;font-size:15px}
+.status.ok{background:var(--ok-soft)} .status.ng{background:var(--ng-soft)}
+.katex{font-size:1.05em}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">🔥 熱力学 計算問題</div>
+  <div class="mode">📤 学習記録モード</div>
+  <button class="who" id="whoBtn" type="button">生徒情報 未入力</button>
+</header>
+<main id="app"></main>
+
+<script>
+// ============================================================
+// 設定
+// ============================================================
+// ★★★ 記録送信先のGAS URL：デプロイ後にここへ設定してください ★★★
+// 例）const GAS_URL = 'https://script.google.com/macros/s/xxxxx/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzilyp0pjprcLGaWWNomUkX1Y6M4eqY-agH4ieaJ_bBQKF4-slarbyiZnmAgLgcmtt8/exec';
+const APP_ID = 'thermo_calc';
+const CLASSES = ['3-C', '3-DE', '2-8', '2-9', 'その他'];
+
+// ============================================================
+// 数値ユーティリティ
+// ============================================================
+const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function shuffle(a){ a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const fix = x => parseFloat(Number(x).toPrecision(12));
+const r3 = x => parseFloat(Number(x).toPrecision(3));
+const isInt = x => Math.abs(x - Math.round(x)) < 1e-9;
+function nf(x){ x = fix(x); if (x === 0) return '0'; return String(x); }
+const M = s => '\\(' + s + '\\)';
+function until(gen, ok, max=20000){ for(let i=0;i<max;i++){ const v=gen(); if(ok(v)) return v; } throw new Error('条件を満たす数値が見つかりません'); }
+// 有効数字の桁数が sig 以下か
+function isClean(x, sig){ x=Math.abs(fix(x)); if(x===0) return true; const e=Math.floor(Math.log10(x)); const m=fix(x/Math.pow(10,e)); return fix(parseFloat(m.toPrecision(sig)))===m; }
+// 指数表記（TeX）。仮数は最低 minSig 桁で表示
+function sciT(x, minSig=2){
+  const neg = x < 0; x = Math.abs(fix(x));
+  let e = Math.floor(Math.log10(x)); let m = fix(x / Math.pow(10, e));
+  if (m >= 10){ m = fix(m/10); e++; }
+  if (m < 1){ m = fix(m*10); e--; }
+  let ms = m.toFixed(minSig - 1); if (parseFloat(ms) !== m) ms = String(m);
+  return (neg ? '-' : '') + ms + (e === 0 ? '' : '\\times 10^{' + e + '}');
+}
+const sci = (x, s) => M(sciT(x, s));
+const MINUS = '−';
+function sgn(v){ v = fix(v); return v > 0 ? '+' + nf(v) : v < 0 ? MINUS + nf(-v) : '0'; }
+function sgnSci(v){ v = fix(v); return (v > 0 ? '+' : MINUS) + ' ' + sci(Math.abs(v)); }
+const p2 = x => Number(x).toPrecision(2);   // 0.050 → "0.050"
+
+// 正解 + 誤答候補 → 4択
+function makeChoices(correct, wrongs, fmt, pos=true){
+  const c = fmt(correct), seen = new Set([c]), out = [];
+  const pool = [...wrongs, correct*10, correct/10, correct*2, correct/2, correct*3, correct*1.5, correct*100, correct/100];
+  for (const w of pool){
+    if (out.length >= 3) break;
+    if (w === null || w === undefined || !isFinite(w)) continue;
+    if (pos && w <= 0) continue;
+    const s = fmt(w); if (seen.has(s)) continue;
+    seen.add(s); out.push(s);
+  }
+  const all = shuffle([c, ...out]);
+  return { choices: all, correct: all.indexOf(c) };
+}
+function makeTextChoices(correct, wrongs){
+  const all = shuffle([correct, ...wrongs]);
+  return { choices: all, correct: all.indexOf(correct) };
+}
+// 問題オブジェクト
+function Q(o){
+  const mc = o.textChoices ? makeTextChoices(o.correct, o.wrongs) : makeChoices(o.correct, o.wrongs || [], o.fmt, o.pos !== false);
+  return { label:o.label, ctx:o.ctx||'', fig:o.fig||'', text:o.text, choices:mc.choices, correct:mc.correct, exp:o.exp };
+}
+
+// ============================================================
+// ① 比熱の計算（cal / J × 比熱・熱容量・熱量・温度変化 = 8題）
+// ============================================================
+const SYS = {
+  cal: { u:'cal', cu:'cal/(g·℃)', Cu:'cal/℃', tu:'℃', tmp:'℃', cs:[0.2,0.25,0.4,0.5,0.6,0.8,1.0], water:1.0, nm:'cal' },
+  J:   { u:'J',   cu:'J/(g·K)',  Cu:'J/K',   tu:'K', tmp:'K', cs:[0.45,0.90,2.0,2.4,2.5,4.2], water:4.2, nm:'J' }
+};
+const DT = [10,15,20,25,30,40,50,60];
+const capList = [20,25,40,50,60,80,100,120,150,200,240,300];
+const cStr = c => nf(c);
+
+function sh_findC(s){
+  const p = until(() => ({ m:R(2,20)*10, dT:pick(DT), c:pick(s.cs) }), p => isInt(p.m*p.c*p.dT));
+  const Qv = fix(p.m*p.c*p.dT);
+  return Q({
+    label:`${s.nm}・比熱を求める`,
+    text:`質量 ${p.m} [g] の物体の温度を ${p.dT} [${s.tu}] 上げるのに、${Qv} [${s.u}] の熱量が必要であった。この物体をつくる物質の比熱は何 [${s.cu}] か。`,
+    correct:p.c, wrongs:[r3(p.m*p.dT/Qv), r3(Qv/p.m), r3(Qv/p.dT)], fmt:v => `${nf(v)} [${s.cu}]`,
+    exp:`${M('Q=mc\\Delta T')} より　${M(`c=\\dfrac{Q}{m\\Delta T}=\\dfrac{${Qv}}{${p.m}\\times ${p.dT}}=${cStr(p.c)}`)} [${s.cu}]`
+  });
+}
+function sh_findCap(s){
+  if (Math.random() < 0.5){
+    const p = until(() => ({ m:R(2,20)*10, c:pick(s.cs) }), p => isInt(p.m*p.c));
+    const C = fix(p.m*p.c);
+    return Q({
+      label:`${s.nm}・熱容量を求める`,
+      text:`比熱 ${cStr(p.c)} [${s.cu}] の物質でできた、質量 ${p.m} [g] の物体の熱容量は何 [${s.Cu}] か。`,
+      correct:C, wrongs:[r3(p.m/p.c), r3(p.c/p.m)], fmt:v => `${nf(v)} [${s.Cu}]`,
+      exp:`熱容量は「物体全体の温度を1${s.tu}上げるのに必要な熱量」なので　${M(`C=mc=${p.m}\\times ${cStr(p.c)}=${C}`)} [${s.Cu}]`
+    });
+  }
+  const p = until(() => ({ C:pick(capList), dT:pick(DT), m:R(2,20)*10 }), p => p.C !== p.m);
+  const Qv = p.C*p.dT;
+  return Q({
+    label:`${s.nm}・熱容量を求める`,
+    text:`質量 ${p.m} [g] のある物体の温度を ${p.dT} [${s.tu}] 上げるのに必要な熱量は ${Qv} [${s.u}] であった。この物体の熱容量は何 [${s.Cu}] か。`,
+    correct:p.C, wrongs:[r3(Qv/(p.m*p.dT)), Qv*p.dT, r3(Qv/p.m)], fmt:v => `${nf(v)} [${s.Cu}]`,
+    exp:`${M('Q=C\\Delta T')} より　${M(`C=\\dfrac{Q}{\\Delta T}=\\dfrac{${Qv}}{${p.dT}}=${p.C}`)} [${s.Cu}]<br>※熱容量は物体全体についての量なので、質量は使いません（質量で割ると比熱になります）。`
+  });
+}
+function sh_findQ(s){
+  if (Math.random() < 0.7){
+    const p = until(() => ({ m:R(2,20)*10, dT:pick([10,20,25,30,40,50,60]), c:pick(s.cs), heat:Math.random()<0.6 }), p => isInt(p.m*p.c*p.dT));
+    const base = s.u === 'J' ? R(28,31)*10 : R(1,6)*5;
+    let T1, T2;
+    if (p.heat){ T1 = base; T2 = base + p.dT; } else { T2 = base; T1 = base + p.dT; }
+    const Qv = fix(p.m*p.c*p.dT);
+    const name = (p.c === s.water) ? `水（比熱 ${cStr(p.c)} [${s.cu}]）` : `比熱 ${cStr(p.c)} [${s.cu}] の物質`;
+    const text = p.heat
+      ? `${name} ${p.m} [g] を、${T1} [${s.tmp}] から ${T2} [${s.tmp}] まで温めるのに必要な熱量は何 [${s.u}] か。`
+      : `${T1} [${s.tmp}] の${name} ${p.m} [g] が ${T2} [${s.tmp}] まで冷えたとき、放出した熱量は何 [${s.u}] か。`;
+    return Q({
+      label:`${s.nm}・熱量を求める`, text,
+      correct:Qv, wrongs:[fix(p.m*p.c*T2), r3(p.m*p.dT/p.c), fix(p.m*p.c*(T1+T2))], fmt:v => `${nf(v)} [${s.u}]`,
+      exp:`温度変化は ${M(`\\Delta T=${Math.max(T1,T2)}-${Math.min(T1,T2)}=${p.dT}`)} [${s.tu}]（${s.u==='J'?'温度差は K でも ℃ でも同じ値':'温度差を使う'}）<br>${M(`Q=mc\\Delta T=${p.m}\\times ${cStr(p.c)}\\times ${p.dT}=${Qv}`)} [${s.u}]`
+    });
+  }
+  const C = pick(capList), dT = pick(DT), Qv = C*dT;
+  return Q({
+    label:`${s.nm}・熱量を求める`,
+    text:`熱容量 ${C} [${s.Cu}] の物体の温度を ${dT} [${s.tu}] 上げるのに必要な熱量は何 [${s.u}] か。`,
+    correct:Qv, wrongs:[r3(C/dT), C+dT, r3(dT/C)], fmt:v => `${nf(v)} [${s.u}]`,
+    exp:`${M(`Q=C\\Delta T=${C}\\times ${dT}=${Qv}`)} [${s.u}]`
+  });
+}
+function sh_findDT(s){
+  if (Math.random() < 0.6){
+    const p = until(() => ({ m:R(2,20)*10, dT:pick(DT), c:pick(s.cs) }), p => isInt(p.m*p.c*p.dT));
+    const Qv = fix(p.m*p.c*p.dT);
+    return Q({
+      label:`${s.nm}・温度変化を求める`,
+      text:`比熱 ${cStr(p.c)} [${s.cu}] の物質 ${p.m} [g] に ${Qv} [${s.u}] の熱量を与えた。温度は何 [${s.tu}] 上昇するか。`,
+      correct:p.dT, wrongs:[r3(Qv/p.m), r3(Qv*p.c/p.m), r3(Qv/p.c)], fmt:v => `${nf(v)} [${s.tu}]`,
+      exp:`${M('Q=mc\\Delta T')} より　${M(`\\Delta T=\\dfrac{Q}{mc}=\\dfrac{${Qv}}{${p.m}\\times ${cStr(p.c)}}=${p.dT}`)} [${s.tu}]`
+    });
+  }
+  const C = pick(capList), dT = pick(DT), Qv = C*dT;
+  return Q({
+    label:`${s.nm}・温度変化を求める`,
+    text:`熱容量 ${C} [${s.Cu}] の物体に ${Qv} [${s.u}] の熱量を与えた。物体の温度は何 [${s.tu}] 上昇するか。`,
+    correct:dT, wrongs:[r3(C/Qv), Qv - C, r3(Qv/C/10)], fmt:v => `${nf(v)} [${s.tu}]`,
+    exp:`${M('Q=C\\Delta T')} より　${M(`\\Delta T=\\dfrac{Q}{C}=\\dfrac{${Qv}}{${C}}=${dT}`)} [${s.tu}]`
+  });
+}
+function genSpecificHeat(){
+  const out = [];
+  for (const k of ['cal','J']){ const s = SYS[k]; out.push(sh_findC(s), sh_findCap(s), sh_findQ(s), sh_findDT(s)); }
+  return out;
+}
+
+// ============================================================
+// ② 潜熱の計算と状態変化（グラフ付き大問・6小問）
+// ============================================================
+const C_ICE = 2.1, C_WATER = 4.2, L_FUSION = 336;
+const LATENT_SETS = (() => {
+  const out = [];
+  for (const P of [20,30,40,42,50,60,70,80,84,100,105,120,140])
+  for (const m of [10,20,25,30,40,50,60,80,100])
+  for (const T0 of [10,20,30])
+  for (const Tf of [10,20,30,40,50,60]){
+    const a = m*21*T0, b = m*L_FUSION, c = m*42*Tf;     // a/10, c/10 [J]
+    if (a % (10*P) || b % P || c % (10*P)) continue;
+    const t1 = a/(10*P), tm = b/P, tw = c/(10*P), t3 = t1+tm+tw;
+    if (t3 < 120 || t3 > 1500) continue;
+    if (t1 < 0.06*t3 || tw < 0.10*t3) continue;
+    out.push({ P, m, T0, Tf, t1, t2:t1+tm, t3 });
+  }
+  return out;
+})();
+
+function latentSVG(d){
+  const W = 380, H = 240, x0 = 56, x1 = 360, yT = 22, yB = 196;
+  const tmin = -d.T0, tmax = d.Tf, span = tmax - tmin;
+  const lo = tmin - span*0.12, hi = tmax + span*0.08;
+  const X = t => x0 + (x1 - x0) * t / (d.t3 * 1.06);
+  const Y = T => yB - (yB - yT) * (T - lo) / (hi - lo);
+  const pts = [[0,tmin],[d.t1,0],[d.t2,0],[d.t3,tmax]];
+  const poly = pts.map(([t,T]) => `${X(t).toFixed(1)},${Y(T).toFixed(1)}`).join(' ');
+  let g = '';
+  // 補助線
+  const dash = 'stroke="#b8a596" stroke-dasharray="4 4" stroke-width="1"';
+  g += `<line x1="${x0}" y1="${Y(0)}" x2="${X(d.t1)}" y2="${Y(0)}" ${dash}/>`;
+  g += `<line x1="${x0}" y1="${Y(tmax)}" x2="${X(d.t3)}" y2="${Y(tmax)}" ${dash}/>`;
+  for (const t of [d.t1, d.t2, d.t3]){
+    const T = t === d.t3 ? tmax : 0;
+    g += `<line x1="${X(t)}" y1="${Y(T)}" x2="${X(t)}" y2="${yB}" ${dash}/>`;
+  }
+  // 時刻ラベル（近い場合は段をずらす）
+  const xs = [d.t1, d.t2, d.t3]; let lastX = -99, row = 0;
+  xs.forEach(t => {
+    const px = X(t); row = (px - lastX < 34) ? (row + 1) % 2 : 0; lastX = px;
+    g += `<text x="${px}" y="${yB + 16 + row*14}" font-size="12" text-anchor="middle" fill="#2b2420">${t}</text>`;
+  });
+  g += `<text x="${x0}" y="${yB + 16}" font-size="12" text-anchor="middle" fill="#2b2420">0</text>`;
+  // 温度ラベル
+  [[tmax, tmax], [0, 0], [tmin, tmin]].forEach(([T, lab]) => {
+    g += `<text x="${x0 - 6}" y="${Y(T) + 4}" font-size="12" text-anchor="end" fill="#2b2420">${lab === 0 ? '0' : (lab < 0 ? MINUS + (-lab) : lab)}</text>`;
+  });
+  // 状態ラベル
+  g += `<text x="${(X(0)+X(d.t1))/2 + 10}" y="${Y(tmin/2) + 12}" font-size="11" fill="#1c7ed6">氷</text>`;
+  g += `<text x="${(X(d.t1)+X(d.t2))/2}" y="${Y(0) - 8}" font-size="11" text-anchor="middle" fill="#7048e8">氷＋水</text>`;
+  g += `<text x="${(X(d.t2)+X(d.t3))/2 - 14}" y="${Y(tmax/2) - 4}" font-size="11" fill="#e8590c">水</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" xmlns="http://www.w3.org/2000/svg" font-family="Noto Sans JP, sans-serif">
+    <line x1="${x0}" y1="${yB}" x2="${x1 + 6}" y2="${yB}" stroke="#2b2420" stroke-width="1.5"/>
+    <line x1="${x0}" y1="${yB}" x2="${x0}" y2="${yT - 10}" stroke="#2b2420" stroke-width="1.5"/>
+    <text x="${x1 + 4}" y="${yB - 6}" font-size="12" text-anchor="end" fill="#2b2420">時刻 [s]</text>
+    <text x="${x0 + 6}" y="${yT - 6}" font-size="12" fill="#2b2420">温度 [℃]</text>
+    ${g}
+    <polyline points="${poly}" fill="none" stroke="#d9480f" stroke-width="2.6" stroke-linejoin="round"/>
+  </svg>`;
+}
+function genLatent(){
+  const d = pick(LATENT_SETS);
+  const fig = latentSVG(d);
+  const ctx = `温度 ${MINUS}${d.T0} [℃] の氷に、時刻 0 から毎秒 ${d.P} [J] の熱量を加え始めた。やがて氷は水になり、水の温度が ${d.Tf} [℃] になったところで加熱を止めた。図は、この間の氷または水の温度変化を示している。熱は外部に逃げないものとし、水の比熱を 4.2 [J/(g·K)] とする。`;
+  const Qw = d.P*(d.t3 - d.t2), Qm = d.P*(d.t2 - d.t1), Qi = d.P*d.t1;
+  const J = v => `${nf(v)} [J]`, G = v => `${nf(v)} [g]`;
+  return [
+    Q({ label:'水の加熱で加えた熱量', ctx, fig,
+      text:`（1）時刻 ${d.t2} [s] から ${d.t3} [s] までの間に、何 [J] の熱を加えたか。`,
+      correct:Qw, wrongs:[d.P*d.t3, d.P*d.t2, r3(Qw/d.P)], fmt:J,
+      exp:`毎秒 ${d.P} J を ${d.t3}−${d.t2}=${d.t3-d.t2} 秒間加えたので　${M(`Q=${d.P}\\times ${d.t3-d.t2}=${Qw}`)} [J]` }),
+    Q({ label:'水の質量', ctx, fig,
+      text:`（2）水の質量は何 [g] か。`,
+      correct:d.m, wrongs:[r3(Qw/C_WATER), r3(Qw/d.Tf), r3(Qw*C_WATER/d.Tf/10)], fmt:G,
+      exp:`（1）の熱で水が 0℃→${d.Tf}℃ になったので　${M(`Q=mc\\Delta T`)} より<br>${M(`m=\\dfrac{${Qw}}{4.2\\times ${d.Tf}}=${d.m}`)} [g]` }),
+    Q({ label:'氷の質量', ctx, fig,
+      text:`（3）はじめの氷の質量は何 [g] か。`,
+      correct:d.m, wrongs:[r3(Qm/L_FUSION/2), d.m*2, r3(Qi/C_WATER/d.T0)], fmt:G,
+      exp:`状態が変化しても質量は変わらない（${d.m} g の氷が融けると ${d.m} g の水になる）。よって氷の質量も ${d.m} [g]。` }),
+    Q({ label:'氷の比熱', ctx, fig,
+      text:`（4）氷の比熱は温度によらず一定であるとして、その値は何 [J/(g·K)] か。`,
+      correct:C_ICE, wrongs:[4.2, 1.05, r3(Qi/d.m)], fmt:v => `${nf(v)} [J/(g·K)]`,
+      exp:`0〜${d.t1} s で加えた熱 ${M(`${d.P}\\times ${d.t1}=${Qi}`)} [J] で、氷 ${d.m} g が ${MINUS}${d.T0}℃→0℃（${d.T0} K 上昇）した。<br>${M(`c'=\\dfrac{${Qi}}{${d.m}\\times ${d.T0}}=2.1`)} [J/(g·K)]` }),
+    Q({ label:'融解に要した熱量', ctx, fig,
+      text:`（5）0 [℃] の氷がすべて 0 [℃] の水になるまでに、何 [J] の熱を加えたか。`,
+      correct:Qm, wrongs:[d.P*d.t2, r3(Qm/d.m), Qm + Qi], fmt:J,
+      exp:`温度が 0℃ で一定の区間（${d.t1}〜${d.t2} s）が融解している間。${M(`${d.P}\\times (${d.t2}-${d.t1})=${Qm}`)} [J]` }),
+    Q({ label:'融解熱', ctx, fig,
+      text:`（6）0 [℃]、1 [g] の氷がすべて水になるまでに必要な熱量（融解熱）は何 [J/g] か。`,
+      correct:L_FUSION, wrongs:[80, 3360, 168], fmt:v => `${nf(v)} [J/g]`,
+      exp:`（5）の熱量を質量で割る。${M(`\\dfrac{${Qm}}{${d.m}}=336`)} [J/g]（＝80 cal/g）` })
+  ];
+}
+
+// ============================================================
+// ③ 熱量保存則（容器の熱容量を考えない大問／考える大問）
+// ============================================================
+function genCalorimetry(){
+  const cs = [0.2,0.25,0.4,0.5,0.6,0.8,1.0];
+  // 大問1：容器の熱容量を無視
+  const a = until(() => {
+    const o = { c1:pick(cs), m1:R(1,10)*50, c2:pick(cs), m2:R(1,10)*50, T1:R(2,8)*5, T2:R(10,18)*5 };
+    o.CA = fix(o.c1*o.m1); o.CB = fix(o.c2*o.m2); o.t = (o.CA*o.T1 + o.CB*o.T2)/(o.CA + o.CB); return o;
+  }, o => isInt(o.CA) && isInt(o.CB) && isInt(o.t) && o.t - o.T1 >= 3 && o.T2 - o.t >= 3 && o.CA !== o.CB && o.c1 !== o.c2);
+  const fig1 = `<svg viewBox="0 0 300 120" width="300" xmlns="http://www.w3.org/2000/svg" font-family="Noto Sans JP, sans-serif">
+    <rect x="30" y="20" width="240" height="80" fill="#fff" stroke="#2b2420" stroke-width="2"/>
+    <rect x="32" y="40" width="117" height="58" fill="#d0ebff"/><rect x="151" y="40" width="117" height="58" fill="#ffd8a8"/>
+    <line x1="150" y1="20" x2="150" y2="100" stroke="#868e96" stroke-width="3"/>
+    <text x="90" y="75" font-size="14" text-anchor="middle">A</text><text x="210" y="75" font-size="14" text-anchor="middle">B</text>
+    <text x="150" y="14" font-size="11" text-anchor="middle" fill="#495057">薄い金属板</text></svg>`;
+  const ctx1 = `【大問1】比熱 ${nf(a.c1)} [cal/(g·℃)]・温度 ${a.T1} [℃] の液体 ${a.m1} [g] を浴槽Aに、比熱 ${nf(a.c2)} [cal/(g·℃)]・温度 ${a.T2} [℃] の液体 ${a.m2} [g] を浴槽Bに入れた。AとBは熱をよく通す薄い金属板で仕切られている。容器と金属板の熱容量は無視でき、熱は外部に逃げないものとする。`;
+  const C = v => `${nf(v)} [cal/℃]`, T = v => `${nf(v)} [℃]`, CAL = v => `${nf(v)} [cal]`;
+  const big1 = [
+    Q({ label:'大問1・Aの熱容量', ctx:ctx1, fig:fig1, text:'（1）浴槽Aの液体の熱容量は何 [cal/℃] か。',
+      correct:a.CA, wrongs:[r3(a.m1/a.c1), a.m1, a.CB], fmt:C,
+      exp:`${M(`C_A=m_1c_1=${a.m1}\\times ${nf(a.c1)}=${a.CA}`)} [cal/℃]` }),
+    Q({ label:'大問1・熱平衡の温度', ctx:ctx1, fig:fig1, text:'（2）しばらくすると液体の温度は t [℃] で一定になった。t を求めなさい。',
+      correct:a.t, wrongs:[r3((a.T1+a.T2)/2), r3((a.m1*a.T1+a.m2*a.T2)/(a.m1+a.m2)), r3((a.CB*a.T1+a.CA*a.T2)/(a.CA+a.CB))], fmt:T,
+      exp:`（Aが得た熱）＝（Bが失った熱）より<br>${M(`${a.CA}(t-${a.T1})=${a.CB}(${a.T2}-t)`)}<br>${M(`t=\\dfrac{${a.CA}\\times ${a.T1}+${a.CB}\\times ${a.T2}}{${a.CA}+${a.CB}}=${a.t}`)} [℃]` }),
+    Q({ label:'大問1・Aが得た熱量', ctx:ctx1, fig:fig1, text:`（3）液体の温度が ${a.t} [℃] になるまでに、浴槽Aの液体が得た熱量は何 [cal] か。`,
+      correct:a.CA*(a.t-a.T1), wrongs:[a.CA*a.t, fix(a.m1*(a.t-a.T1)), a.CA*(a.T2-a.T1)], fmt:CAL,
+      exp:`${M(`Q=C_A(t-T_1)=${a.CA}\\times (${a.t}-${a.T1})=${a.CA*(a.t-a.T1)}`)} [cal]<br>これはBが失った熱量 ${M(`${a.CB}\\times(${a.T2}-${a.t})`)} と等しくなります。` })
+  ];
+  // 大問2：容器の熱容量を考える
+  const b = until(() => {
+    const o = { Cc:pick([10,20,25,30,40,50,60,80,100]), m1:R(5,30)*10, c2:pick([0.1,0.2,0.25,0.4,0.5]), m2:R(1,10)*50, T1:R(2,6)*5, T2:R(12,20)*5 };
+    o.Cw = o.Cc + o.m1; o.C2 = fix(o.c2*o.m2); o.t = (o.Cw*o.T1 + o.C2*o.T2)/(o.Cw + o.C2); return o;
+  }, o => isInt(o.C2) && isInt(o.t) && o.t - o.T1 >= 3 && o.T2 - o.t >= 3 && o.C2 !== o.Cw && o.Cc !== o.m1);
+  const ctx2 = `【大問2】熱容量 ${b.Cc} [cal/℃] の容器に水 ${b.m1} [g] を入れたところ、全体の温度は ${b.T1} [℃] になった。ここに、温度 ${b.T2} [℃]・比熱 ${nf(b.c2)} [cal/(g·℃)]・質量 ${b.m2} [g] の金属球を入れてかき混ぜた。水の比熱を 1.0 [cal/(g·℃)] とし、熱は外部に逃げないものとする。`;
+  const tNo = r3((b.m1*b.T1 + b.C2*b.T2)/(b.m1 + b.C2));
+  const big2 = [
+    Q({ label:'大問2・容器と水の熱容量', ctx:ctx2, text:'（1）容器と水を合わせた熱容量は何 [cal/℃] か。',
+      correct:b.Cw, wrongs:[b.m1, b.Cc, b.Cc*b.m1], fmt:C,
+      exp:`水の熱容量は ${M(`${b.m1}\\times 1.0=${b.m1}`)} [cal/℃]。容器の熱容量を足して ${M(`${b.Cc}+${b.m1}=${b.Cw}`)} [cal/℃]` }),
+    Q({ label:'大問2・熱平衡の温度', ctx:ctx2, text:'（2）しばらくすると全体の温度は t [℃] で一定になった。t を求めなさい。',
+      correct:b.t, wrongs:[tNo, r3((b.T1+b.T2)/2), r3((b.Cw*b.T2+b.C2*b.T1)/(b.Cw+b.C2))], fmt:T,
+      exp:`金属球の熱容量は ${M(`${b.m2}\\times ${nf(b.c2)}=${b.C2}`)} [cal/℃]。<br>（容器と水が得た熱）＝（金属球が失った熱）より<br>${M(`${b.Cw}(t-${b.T1})=${b.C2}(${b.T2}-t)`)}　∴ ${M(`t=${b.t}`)} [℃]<br>※容器の熱容量を忘れると ${tNo} ℃ になってしまいます。` }),
+    Q({ label:'大問2・金属球が失った熱量', ctx:ctx2, text:`（3）全体の温度が ${b.t} [℃] になるまでに、金属球が失った熱量は何 [cal] か。`,
+      correct:b.C2*(b.T2-b.t), wrongs:[b.C2*b.T2, b.m1*(b.t-b.T1), b.C2*(b.T2-b.T1)], fmt:CAL,
+      exp:`${M(`Q=m_2c_2(T_2-t)=${b.C2}\\times (${b.T2}-${b.t})=${b.C2*(b.T2-b.t)}`)} [cal]` }),
+    Q({ label:'大問2・容器が得た熱量', ctx:ctx2, text:`（4）全体の温度が ${b.t} [℃] になるまでに、容器が得た熱量は何 [cal] か。`,
+      correct:b.Cc*(b.t-b.T1), wrongs:[b.Cc*b.t, b.m1*(b.t-b.T1), b.Cw*(b.t-b.T1)], fmt:CAL,
+      exp:`${M(`Q=C(t-T_1)=${b.Cc}\\times (${b.t}-${b.T1})=${b.Cc*(b.t-b.T1)}`)} [cal]<br>（水が得た ${b.m1*(b.t-b.T1)} cal と合わせると、金属球が失った熱量に等しい）` })
+  ];
+  return [...big1, ...big2];
+}
+
+// ============================================================
+// ④ 熱力学第一法則（ΔU・Q・W 各2題、Q・Wでは体積変化も）
+// ============================================================
+const nz = () => (Math.random() < 0.5 ? -1 : 1) * R(1, 12);
+const heatAct = q => q > 0 ? `外部が気体に ${q} [J] の熱を与え` : `外部が気体から ${-q} [J] の熱を奪い`;
+const heatDone = q => q > 0 ? `外部が気体に ${q} [J] の熱を与えた` : `外部が気体から ${-q} [J] の熱を奪った`;
+const workDone = w => w > 0 ? `外部が気体に ${w} [J] の仕事をした` : `気体が外部に ${-w} [J] の仕事をした`;
+const dUDone = u => u > 0 ? `気体の内部エネルギーは ${u} [J] 増加した` : `気体の内部エネルギーは ${-u} [J] 減少した`;
+const SJ = v => `${sgn(v)} [J]`;
+const VOL_UP = '増加した（膨張した）', VOL_DN = '減少した（収縮した）', VOL_SAME = '変化しなかった', VOL_NA = 'これだけでは判断できない';
+const FL_NOTE = `${M('\\Delta U=Q+W')}　（Q：気体が吸収した熱、W：外部が気体にした仕事）`;
+function volQ(ctx, w, label){
+  const up = w < 0;
+  return Q({ label, ctx, text:'このとき、気体の体積はどうなったか。', textChoices:true,
+    correct: up ? VOL_UP : VOL_DN, wrongs:[up ? VOL_DN : VOL_UP, VOL_SAME, VOL_NA],
+    exp: up ? `W＝${sgn(w)} J（負）→ 気体が外部に仕事をした ＝ 気体が外部を押し広げた。よって体積は<b>増加（膨張）</b>した。`
+            : `W＝${sgn(w)} J（正）→ 外部が気体に仕事をした ＝ 気体が押し縮められた。よって体積は<b>減少（収縮）</b>した。` });
+}
+function genFirstLaw(){
+  const out = [];
+  // ΔU ×2（2題目は一定確率で定積変化）
+  for (let i = 0; i < 2; i++){
+    if (i === 1 && Math.random() < 0.4){
+      const q = nz();
+      out.push(Q({ label:'ΔUを求める（定積）', ctx:`ある気体に対して、${heatDone(q)}が、気体の体積は変化しなかった。`,
+        text:'気体の内部エネルギーの変化 ΔU は何 [J] か。（増加を正とする）',
+        correct:q, wrongs:[-q, 0, 2*q], fmt:SJ, pos:false,
+        exp:`体積が変化しないので仕事 ${M('W=0')}。${M(`\\Delta U=Q+W=${q}+0=${q}`)} [J]` }));
+      continue;
+    }
+    const v = until(() => ({ q:nz(), w:nz() }), v => Math.abs(v.q) !== Math.abs(v.w));
+    out.push(Q({ label:'ΔUを求める', ctx:`ある気体に対して、${heatAct(v.q)}ながら、${workDone(v.w)}。`,
+      text:'気体の内部エネルギーの変化 ΔU は何 [J] か。（増加を正とする）',
+      correct:v.q+v.w, wrongs:[v.q-v.w, -v.q+v.w, -v.q-v.w], fmt:SJ, pos:false,
+      exp:`${FL_NOTE}<br>${M(`Q=${v.q},\\ W=${v.w}`)} より　${M(`\\Delta U=(${v.q})+(${v.w})=${v.q+v.w}`)} [J]` }));
+  }
+  // Q ×2
+  for (let i = 0; i < 2; i++){
+    const v = until(() => ({ u:nz(), w:nz() }), v => Math.abs(v.u) !== Math.abs(v.w));
+    const q = v.u - v.w, ctx = `ある気体について、${workDone(v.w)}ところ、${dUDone(v.u)}。`;
+    out.push(Q({ label:'Qを求める', ctx,
+      text:'外部が気体に与えた熱量 Q は何 [J] か。（気体が熱を吸収する向きを正とする）',
+      correct:q, wrongs:[v.u+v.w, -v.u-v.w, v.w-v.u], fmt:SJ, pos:false,
+      exp:`${FL_NOTE}<br>${M(`\\Delta U=${v.u},\\ W=${v.w}`)} より　${M(`Q=\\Delta U-W=(${v.u})-(${v.w})=${q}`)} [J]` }));
+    out.push(volQ(ctx, v.w, 'Qの問・体積変化'));
+  }
+  // W ×2
+  for (let i = 0; i < 2; i++){
+    const v = until(() => ({ u:nz(), q:nz() }), v => Math.abs(v.u) !== Math.abs(v.q));
+    const w = v.u - v.q, ctx = `ある気体に対して、${heatDone(v.q)}ところ、${dUDone(v.u)}。`;
+    out.push(Q({ label:'Wを求める', ctx,
+      text:'外部が気体にした仕事 W は何 [J] か。（外部が気体に仕事をする向きを正とする）',
+      correct:w, wrongs:[v.u+v.q, -v.u-v.q, v.q-v.u], fmt:SJ, pos:false,
+      exp:`${FL_NOTE}<br>${M(`\\Delta U=${v.u},\\ Q=${v.q}`)} より　${M(`W=\\Delta U-Q=(${v.u})-(${v.q})=${w}`)} [J]` }));
+    out.push(volQ(ctx, w, 'Wの問・体積変化'));
+  }
+  return out;
+}
+
+// ============================================================
+// ⑤ 熱膨張（線膨張・体膨張）
+// ============================================================
+function genExpansion(){
+  const out = [];
+  const alphas = [1.2,1.5,1.6,1.7,2.0,2.3,2.4,2.5];
+  const L0s = [1.0,2.0,5.0,10,20,50,100], dTs = [10,20,25,40,50,100];
+  const fA = v => `${sci(v)} [1/K]`;
+  // 線膨張率を求める
+  {
+    const p = until(() => ({ a:pick(alphas)*1e-5, L0:pick(L0s), dT:pick(dTs), T1:pick([0,0,10,20]) }),
+      p => isClean(p.a*p.L0*p.dT*1000, 2) && fix(p.a*p.L0*p.dT*1000) >= 0.1);
+    const dLmm = fix(p.a*p.L0*p.dT*1000);
+    out.push(Q({ label:'線膨張率を求める',
+      text:`${p.T1} [℃] のときの長さが ${nf(p.L0)} [m] の金属棒がある。この棒の温度を ${p.T1+p.dT} [℃] に上昇させたところ、長さが ${nf(dLmm)} [mm] 伸びた。この金属の線膨張率は何 [1/K] か。`,
+      correct:p.a, wrongs:[p.a*1000, p.a*p.dT, p.a/10], fmt:fA,
+      exp:`${M('\\Delta L=\\alpha L_0\\Delta T')} より　${M(`\\alpha=\\dfrac{\\Delta L}{L_0\\Delta T}=\\dfrac{${sciT(dLmm/1000)}}{${nf(p.L0)}\\times ${p.dT}}=${sciT(p.a)}`)} [1/K]<br>※伸びは mm → m に直してから計算します。` }));
+  }
+  // 加熱後の長さを求める
+  {
+    const p = until(() => ({ a:pick(alphas)*1e-5, L0:pick([1.0,2.0,5.0,10,20]), dT:pick(dTs), T1:pick([0,10,20]) }),
+      p => isClean(p.a*p.L0*p.dT, 2));
+    const dL = fix(p.a*p.L0*p.dT), L = fix(p.L0 + dL);
+    out.push(Q({ label:'加熱後の長さを求める',
+      text:`線膨張率 ${sci(p.a)} [1/K] の金属棒の長さは、${p.T1} [℃] のとき ${nf(p.L0)} [m] である。この棒を ${p.T1+p.dT} [℃] にしたときの長さは何 [m] か。`,
+      correct:L, wrongs:[fix(p.L0 + dL*10), fix(p.L0 + dL/10), fix(p.L0 - dL)], fmt:v => `${nf(v)} [m]`,
+      exp:`伸び　${M(`\\Delta L=\\alpha L_0\\Delta T=${sciT(p.a)}\\times ${nf(p.L0)}\\times ${p.dT}=${nf(dL)}`)} [m]<br>${M(`L=L_0+\\Delta L=${nf(p.L0)}+${nf(dL)}=${nf(L)}`)} [m]` }));
+  }
+  const betas = [1.8e-4, 2.0e-4, 5.0e-4, 1.0e-3, 1.1e-3, 1.2e-3];
+  const V0s = [100,200,250,500,1000], dTv = [10,20,25,40,50];
+  // 体膨張率を求める
+  {
+    const p = until(() => ({ b:pick(betas), V0:pick(V0s), dT:pick(dTv), T1:pick([0,10,20]) }),
+      p => isClean(p.b*p.V0*p.dT, 2) && p.b*p.V0*p.dT >= 0.1);
+    const dV = fix(p.b*p.V0*p.dT);
+    out.push(Q({ label:'体膨張率を求める',
+      text:`${p.T1} [℃] で体積 ${p.V0} [cm³] の液体を ${p.T1+p.dT} [℃] まで温めたところ、体積が ${nf(dV)} [cm³] 増加した。この液体の体膨張率は何 [1/K] か。`,
+      correct:p.b, wrongs:[p.b*p.dT, p.b/3, p.b*10], fmt:fA,
+      exp:`${M('\\Delta V=\\beta V_0\\Delta T')} より　${M(`\\beta=\\dfrac{\\Delta V}{V_0\\Delta T}=\\dfrac{${nf(dV)}}{${p.V0}\\times ${p.dT}}=${sciT(p.b)}`)} [1/K]` }));
+  }
+  // 加熱後の体積を求める
+  {
+    const p = until(() => ({ b:pick(betas), V0:pick(V0s), dT:pick(dTv), T1:pick([0,10,20]) }),
+      p => isClean(p.b*p.V0*p.dT, 2) && p.b*p.V0*p.dT >= 0.1);
+    const dV = fix(p.b*p.V0*p.dT), V = fix(p.V0 + dV);
+    out.push(Q({ label:'加熱後の体積を求める',
+      text:`体膨張率 ${sci(p.b)} [1/K] の液体がある。${p.T1} [℃] で体積 ${p.V0} [cm³] のこの液体を ${p.T1+p.dT} [℃] まで温めたときの体積は何 [cm³] か。`,
+      correct:V, wrongs:[fix(p.V0 + dV*10), fix(p.V0 + dV/10), fix(p.V0 - dV)], fmt:v => `${nf(v)} [cm³]`,
+      exp:`増加量　${M(`\\Delta V=\\beta V_0\\Delta T=${sciT(p.b)}\\times ${p.V0}\\times ${p.dT}=${nf(dV)}`)} [cm³]<br>${M(`V=V_0+\\Delta V=${p.V0}+${nf(dV)}=${nf(V)}`)} [cm³]` }));
+  }
+  return out;
+}
+
+// ============================================================
+// ⑥ 圧力と仕事（W・p・ΔV を求める 計3題）
+// ============================================================
+function genPressureWork(){
+  const ps = [1.0,1.5,2.0,2.5,3.0,4.0,5.0], dVs = [0.010,0.020,0.040,0.050,0.10,0.20,0.30];
+  const fV = v => (v >= 1000 || v < 0.001) ? `${sci(v)} [m³]` : v >= 10 ? `${nf(r3(v))} [m³]` : `${p2(v)} [m³]`;
+  const gen = () => until(() => ({ p:pick(ps)*1e5, dV:pick(dVs) }), o => isClean(o.p*o.dV, 2));
+  const findW = () => {
+    const o = gen(), W = fix(o.p*o.dV), expand = Math.random() < 0.5, askGas = Math.random() < 0.5;
+    const val = (expand === askGas) ? W : -W;
+    return Q({ label:'仕事を求める',
+      ctx:`圧力 ${sci(o.p)} [Pa] を一定に保ったまま、気体の体積が ${p2(o.dV)} [m³] ${expand ? '増加' : '減少'}した。`,
+      text:`このとき、${askGas ? '気体が外部にした' : '外部が気体にした'}仕事は何 [J] か。`,
+      correct:val, wrongs:[-val, val*10, val/10], fmt:v => `${sgnSci(v)} [J]`, pos:false,
+      exp:`仕事の大きさ　${M(`p\\Delta V=${sciT(o.p)}\\times ${p2(o.dV)}=${sciT(W)}`)} [J]<br>気体は${expand ? '膨張（外部を押した）' : '収縮（外部に押された）'}ので、${askGas ? '気体が外部にした' : '外部が気体にした'}仕事は <b>${val > 0 ? '正' : '負'}</b>。` });
+  };
+  const findP = () => {
+    const o = gen(), W = fix(o.p*o.dV), comp = Math.random() < 0.5;
+    return Q({ label:'圧力を求める',
+      ctx: comp ? `圧力を一定に保ちながら、外部が気体に ${sci(W)} [J] の仕事をしたところ、気体の体積は ${p2(o.dV)} [m³] 減少した。`
+                : `圧力を一定に保ちながら、気体が外部に ${sci(W)} [J] の仕事をしたところ、気体の体積は ${p2(o.dV)} [m³] 増加した。`,
+      text:'気体の圧力は何 [Pa] か。',
+      correct:o.p, wrongs:[W*o.dV, o.dV/W, o.p*10], fmt:v => `${sci(v)} [Pa]`,
+      exp:`${M('W=p\\Delta V')} より　${M(`p=\\dfrac{W}{\\Delta V}=\\dfrac{${sciT(W)}}{${p2(o.dV)}}=${sciT(o.p)}`)} [Pa]` });
+  };
+  const findV = () => {
+    const o = gen(), W = fix(o.p*o.dV), comp = Math.random() < 0.5;
+    return Q({ label:'体積変化を求める',
+      ctx: comp ? `圧力 ${sci(o.p)} [Pa] を一定に保ちながら、外部が気体に ${sci(W)} [J] の仕事をした。`
+                : `圧力 ${sci(o.p)} [Pa] を一定に保ちながら、気体が外部に ${sci(W)} [J] の仕事をした。`,
+      text:`気体の体積は何 [m³] ${comp ? '減少' : '増加'}したか。`,
+      correct:o.dV, wrongs:[o.dV*10, o.dV/10, o.p/W], fmt:fV,
+      exp:`${M('W=p\\Delta V')} より　${M(`\\Delta V=\\dfrac{W}{p}=\\dfrac{${sciT(W)}}{${sciT(o.p)}}=${p2(o.dV)}`)} [m³]` });
+  };
+  return shuffle([findW, findP, findV]).map(f => f());
+}
+
+// ============================================================
+// ⑦ 熱効率（計3題）
+// ============================================================
+function genEfficiency(){
+  const out = [];
+  {
+    const o = until(() => ({ Qin:pick([200,400,500,800,1000,1200,1500,2000,2500,4000]), e:pick([10,20,25,30,40,50,60,75,80]) }), o => isInt(o.Qin*o.e/100));
+    const W = o.Qin*o.e/100;
+    out.push(Q({ label:'熱効率を求める',
+      text:`ある熱機関に ${o.Qin} [J] の熱を与えたところ、熱機関は外部に ${W} [J] の仕事をした。この熱機関の熱効率は何 [%] か。`,
+      correct:o.e, wrongs:[r3(o.Qin/W*100), 100 - o.e, r3(W/(o.Qin+W)*100)], fmt:v => `${nf(v)} [%]`,
+      exp:`${M('e=\\dfrac{W}{Q}')} より　${M(`e=\\dfrac{${W}}{${o.Qin}}=${fix(o.e/100)}`)} → ${o.e} %` }));
+  }
+  {
+    const o = until(() => ({ Qin:pick([2.0,4.0,5.0,6.0,8.0])*Math.pow(10, pick([3,4,5])), e:pick([20,25,30,40,50]) }), o => isClean(o.Qin*o.e/100, 2));
+    const W = fix(o.Qin*o.e/100);
+    out.push(Q({ label:'熱効率から仕事を求める',
+      text:`熱効率 ${o.e} [%] の熱機関に ${sci(o.Qin)} [J] の熱を与えた。この熱機関が外部にした仕事は何 [J] か。`,
+      correct:W, wrongs:[fix(o.Qin*(1-o.e/100)), fix(o.Qin/(o.e/100)), W*10], fmt:v => `${sci(v)} [J]`,
+      exp:`${M(`W=eQ=${fix(o.e/100)}\\times ${sciT(o.Qin)}=${sciT(W)}`)} [J]` }));
+  }
+  {
+    const o = until(() => ({ q:pick([4.0,4.2,4.5,5.0])*1e7, e:pick([20,25,30,40,50]), m:pick([2,4,5,10,20]) }), o => isClean(o.q*o.m*o.e/100, 3));
+    const Qall = fix(o.q*o.m), W = fix(Qall*o.e/100);
+    out.push(Q({ label:'燃料と熱効率から仕事を求める',
+      text:`燃料 1.0 [kg] を燃焼させると ${sci(o.q)} [J] の熱が出るものとする。熱効率 ${o.e} [%] の熱機関が、この燃料を ${o.m} [kg] 消費してする仕事は何 [J] か。`,
+      correct:W, wrongs:[Qall, fix(Qall*(1-o.e/100)), fix(o.q*o.e/100)], fmt:v => `${sci(v)} [J]`,
+      exp:`発生する熱量　${M(`Q=${sciT(o.q)}\\times ${o.m}=${sciT(Qall)}`)} [J]<br>${M(`W=eQ=${fix(o.e/100)}\\times ${sciT(Qall)}=${sciT(W)}`)} [J]` }));
+  }
+  return out;
+}
+
+// ============================================================
+// タブ定義
+// ============================================================
+const TABS = [
+  { no:'①', name:'比熱の計算', gen:genSpecificHeat,
+    items:['cal を使う問題：比熱・熱容量・熱量・温度変化 各1題','J を使う問題：比熱・熱容量・熱量・温度変化 各1題'],
+    formula:`${M('Q=mc\\Delta T')}　　${M('C=mc')}　　${M('Q=C\\Delta T')}` },
+  { no:'②', name:'潜熱の計算と状態変化', gen:genLatent,
+    items:['氷を加熱したときの温度変化のグラフから、熱量・質量・比熱・融解熱を求める（小問6題）'],
+    formula:`${M('Q=mc\\Delta T')}　　融解熱：${M('Q=mL')}` },
+  { no:'③', name:'熱量保存則', gen:genCalorimetry,
+    items:['大問1：容器の熱容量を考えない問題（小問3題）','大問2：容器の熱容量を考える問題（小問4題）'],
+    formula:`（高温の物体が失った熱量）＝（低温の物体が得た熱量）` },
+  { no:'④', name:'熱力学第一法則', gen:genFirstLaw,
+    items:['ΔU を求める問題 2題','Q を求める問題 2題（＋体積の増減）','W を求める問題 2題（＋体積の増減）'],
+    formula:`${M('\\Delta U=Q+W')}　（Q：気体が吸収した熱、W：外部が気体にした仕事）` },
+  { no:'⑤', name:'熱膨張', gen:genExpansion,
+    items:['線膨張：線膨張率／加熱後の長さ','体膨張：体膨張率／加熱後の体積'],
+    formula:`${M('L=L_0(1+\\alpha\\Delta T)')}　　${M('V=V_0(1+\\beta\\Delta T)')}` },
+  { no:'⑥', name:'圧力と仕事', gen:genPressureWork,
+    items:['圧力と体積変化から仕事を求める','仕事から圧力または体積変化を求める（計3題）'],
+    formula:`${M('W=p\\Delta V')}（圧力一定）` },
+  { no:'⑦', name:'熱効率', gen:genEfficiency,
+    items:['与えた熱と仕事から熱効率を求める','熱効率から仕事を求める（計3題）'],
+    formula:`${M('e=\\dfrac{W}{Q}')}` }
+];
+
+// ==== UI ====
+const app = document.getElementById('app');
+const S = { tab:0, phase:'home', items:[], queue:[], first:{}, cur:null, answered:false, sendState:'', abortArm:false, editing:false,
+  student: loadStudent() };
+
+function loadStudent(){ try { return JSON.parse(localStorage.getItem(APP_ID + '_student')) || { cls:'', num:'', name:'' }; } catch(e){ return { cls:'', num:'', name:'' }; } }
+function saveStudent(){ try { localStorage.setItem(APP_ID + '_student', JSON.stringify(S.student)); } catch(e){} }
+const studentOK = () => S.student.cls && S.student.num && S.student.name;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function renderMath(el){
+  if (window.renderMathInElement) renderMathInElement(el, { delimiters:[{left:'\\(', right:'\\)', display:false}], throwOnError:false });
+  else setTimeout(() => renderMath(el), 150);
+}
+function updateWho(){
+  const b = document.getElementById('whoBtn');
+  b.textContent = studentOK() ? `${S.student.cls}　${S.student.num}番　${S.student.name}` : '生徒情報 未入力';
+}
+document.getElementById('whoBtn').addEventListener('click', () => { if (S.phase === 'home'){ S.editing = true; render(); } });
+
+function render(){
+  updateWho();
+  if (S.phase === 'home') renderHome();
+  else if (S.phase === 'quiz') renderQuiz();
+  else renderResult();
+  renderMath(app);
+}
+
+function tabsHTML(disabled){
+  return `<div class="tabs">${TABS.map((t,i) => `<button class="tab ${i===S.tab?'active':''}" data-tab="${i}" ${disabled?'disabled':''}><span class="no">${t.no}</span><span class="nm">${t.name}</span></button>`).join('')}</div>`;
+}
+
+function renderHome(){
+  const st = S.student, showForm = S.editing || !studentOK();
+  const isOther = st.cls && !CLASSES.slice(0,-1).includes(st.cls);
+  const t = TABS[S.tab];
+  app.innerHTML = `
+    ${showForm ? `<div class="card">
+      <h2>生徒情報</h2>
+      <div class="form-row">
+        <label>クラス<select id="fCls"><option value="">選択</option>${CLASSES.map(c => `<option ${ (c===st.cls || (c==='その他' && isOther)) ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>出席番号<input id="fNum" type="number" inputmode="numeric" min="1" max="50" value="${esc(st.num)}"></label>
+        <label class="name">氏名<input id="fName" type="text" value="${esc(st.name)}" placeholder="例）湘南 太郎"></label>
+      </div>
+      <div id="otherWrap" style="margin-top:8px;${isOther?'':'display:none'}"><input id="fOther" type="text" placeholder="クラス名を入力" value="${isOther?esc(st.cls):''}" style="font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;width:100%"></div>
+      <div class="btns"><button class="btn primary small" id="saveSt">保存</button></div>
+    </div>` : ''}
+    ${tabsHTML(false)}
+    <div class="card intro">
+      <h2>${t.no} ${t.name}</h2>
+      <div class="muted">出題内容（数値は毎回ランダムに変わります）</div>
+      <ul>${t.items.map(s => `<li>${s}</li>`).join('')}</ul>
+      <div class="formula">${t.formula}</div>
+      <div class="muted">間違えた問題は最後にもう一度出題され、全問正解で終了です。記録されるのは<b>1回目の正誤</b>です。</div>
+      <div class="btns"><button class="btn primary" id="startBtn" ${studentOK()?'':'disabled'}>学習を始める</button></div>
+      ${studentOK() ? '' : '<div class="muted" style="margin-top:6px">※先に生徒情報を入力・保存してください。</div>'}
+    </div>`;
+  app.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { S.tab = +b.dataset.tab; render(); }));
+  if (showForm){
+    const sel = document.getElementById('fCls');
+    sel.addEventListener('change', () => { document.getElementById('otherWrap').style.display = sel.value === 'その他' ? '' : 'none'; });
+    document.getElementById('saveSt').addEventListener('click', () => {
+      let cls = sel.value; if (cls === 'その他') cls = document.getElementById('fOther').value.trim();
+      const num = document.getElementById('fNum').value.trim(), name = document.getElementById('fName').value.trim();
+      if (!cls || !num || !name){ alertBox('クラス・出席番号・氏名をすべて入力してください。'); return; }
+      S.student = { cls, num, name }; saveStudent(); S.editing = false; render();
+    });
+  }
+  document.getElementById('startBtn').addEventListener('click', startQuiz);
+}
+function alertBox(msg){
+  let el = document.getElementById('msgBox');
+  if (!el){ el = document.createElement('div'); el.id = 'msgBox'; el.className = 'status ng'; app.prepend(el); }
+  el.textContent = msg;
+}
+
+function startQuiz(){
+  S.items = TABS[S.tab].gen();
+  S.items.forEach((q, i) => { q.no = i + 1; q.retry = false; });
+  S.queue = S.items.slice(); S.first = {}; S.sendState = ''; S.phase = 'quiz'; S.answered = false; S.abortArm = false;
+  render(); window.scrollTo(0, 0);
+}
+
+function renderQuiz(){
+  const q = S.queue[0], N = S.items.length, done = N - S.queue.length;
+  const t = TABS[S.tab];
+  app.innerHTML = `
+    ${tabsHTML(true)}
+    <div class="card">
+      <div class="qhead"><span class="chip">${t.no} ${t.name}</span><span class="chip">問${q.no}／${N}</span>${q.retry ? '<span class="chip retry">🔄 再チャレンジ問題</span>' : ''}
+        <span class="muted" style="margin-left:auto">正解済み ${done} / ${N}</span></div>
+      <div class="progress"><div style="width:${done/N*100}%"></div></div>
+      ${q.ctx ? `<div class="ctx">${q.ctx}</div>` : ''}
+      ${q.fig ? `<div class="fig">${q.fig}</div>` : ''}
+      <div class="qtext">${q.text}</div>
+      <div class="choices">${q.choices.map((c,i) => `<button class="choice" data-i="${i}"><span class="mk">${'ABCD'[i]}</span><span>${c}</span></button>`).join('')}</div>
+      <div id="fb"></div>
+      <div class="btns"><button class="btn ghost small" id="abortBtn">${S.abortArm ? 'もう一度押すと中断します' : '中断してタブ選択へ戻る'}</button></div>
+    </div>`;
+  app.querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => answer(+b.dataset.i)));
+  document.getElementById('abortBtn').addEventListener('click', () => {
+    if (S.abortArm){ S.phase = 'home'; S.abortArm = false; render(); return; }
+    S.abortArm = true; document.getElementById('abortBtn').textContent = 'もう一度押すと中断します（記録されません）';
+  });
+}
+
+function answer(i){
+  if (S.answered) return;
+  S.answered = true;
+  const q = S.queue[0], ok = i === q.correct;
+  if (S.first[q.no] === undefined) S.first[q.no] = ok;
+  const btns = app.querySelectorAll('.choice');
+  btns.forEach((b, k) => { b.disabled = true; if (k === q.correct) b.classList.add('correct'); else if (k === i) b.classList.add('wrong'); });
+  S.queue.shift();
+  if (!ok){
+    // 再出題：選択肢の並びを入れ替えて末尾へ
+    const right = q.choices[q.correct]; q.choices = shuffle(q.choices); q.correct = q.choices.indexOf(right); q.retry = true;
+    S.queue.push(q);
+  }
+  const fb = document.getElementById('fb');
+  fb.innerHTML = `<div class="fb ${ok?'ok':'ng'}">
+      <div class="head">${ok ? '⭕ 正解！' : '❌ 不正解… この問題はあとでもう一度出題されます'}</div>
+      <div class="exp">${q.exp}</div>
+    </div>
+    <div class="btns"><button class="btn primary" id="nextBtn">${S.queue.length ? '次の問題へ' : '結果を見る'}</button></div>`;
+  renderMath(fb);
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    S.answered = false; S.abortArm = false;
+    if (S.queue.length) renderQuiz(); else { S.phase = 'result'; render(); sendRecord(); }
+    renderMath(app); window.scrollTo(0, 0);
+  });
+  fb.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function renderResult(){
+  const N = S.items.length, score = S.items.filter(q => S.first[q.no]).length, t = TABS[S.tab];
+  app.innerHTML = `
+    ${tabsHTML(false)}
+    <div class="card">
+      <h2>${t.no} ${t.name}　結果</h2>
+      <div class="muted" style="text-align:center">1回目の正答数</div>
+      <div class="score">${score} / ${N}</div>
+      <table class="res"><tr><th>問</th><th>内容</th><th>1回目</th></tr>
+        ${S.items.map(q => `<tr><td>${q.no}</td><td>${q.label}</td><td class="m ${S.first[q.no]?'okc':'ngc'}">${S.first[q.no]?'○':'×'}</td></tr>`).join('')}
+      </table>
+      <div id="sendStatus" class="status">${S.sendState || '記録を送信しています…'}</div>
+      <div class="btns">
+        <button class="btn primary" id="againBtn">新しい数値でもう一度</button>
+        <button class="btn ghost" id="homeBtn">タブ選択へ戻る</button>
+        <button class="btn ghost small" id="resendBtn">記録を再送信</button>
+      </div>
+    </div>`;
+  app.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { S.tab = +b.dataset.tab; S.phase = 'home'; render(); }));
+  document.getElementById('againBtn').addEventListener('click', startQuiz);
+  document.getElementById('homeBtn').addEventListener('click', () => { S.phase = 'home'; render(); });
+  document.getElementById('resendBtn').addEventListener('click', sendRecord);
+}
+
+function setStatus(msg, cls){
+  S.sendState = msg;
+  const el = document.getElementById('sendStatus');
+  if (el){ el.textContent = msg; el.className = 'status ' + (cls || ''); }
+}
+
+// GAS送信（GET・no-cors・最大3回リトライ）
+async function sendRecord(){
+  const N = S.items.length, score = S.items.filter(q => S.first[q.no]).length, t = TABS[S.tab];
+  if (!GAS_URL){ setStatus('送信先（GAS URL）が未設定のため、記録は送信されていません。', 'ng'); return; }
+  const params = new URLSearchParams({
+    app: APP_ID, section: `${t.no}${t.name}`,
+    cls: S.student.cls, num: S.student.num, name: S.student.name,
+    score: String(score), total: String(N),
+    qids: S.items.map(q => q.no).join(','),
+    labels: S.items.map(q => q.label).join('|')
+  });
+  S.items.forEach(q => params.append('q' + q.no, S.first[q.no] ? '○' : '×'));
+  setStatus('記録を送信しています…');
+  for (let k = 1; k <= 3; k++){
+    try {
+      await fetch(GAS_URL + '?' + params.toString(), { method:'GET', mode:'no-cors', cache:'no-store' });
+      setStatus(`✅ 記録を送信しました（${S.student.cls} ${S.student.num}番 ${S.student.name}／${score}/${N}）`, 'ok');
+      return;
+    } catch(e){
+      if (k < 3){ setStatus(`送信に失敗しました。再試行中…（${k}/3）`); await new Promise(r => setTimeout(r, 1200*k)); }
+    }
+  }
+  setStatus('❌ 送信できませんでした。通信環境を確認して「記録を再送信」を押してください。', 'ng');
+}
+
+render();
+</script>
+</body>
+</html>
