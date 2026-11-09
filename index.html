@@ -532,32 +532,42 @@ function genPressureWork(){
   const ps = [1.0,1.5,2.0,2.5,3.0,4.0,5.0], dVs = [0.010,0.020,0.040,0.050,0.10,0.20,0.30];
   const fV = v => (v >= 1000 || v < 0.001) ? `${sci(v)} [m³]` : v >= 10 ? `${nf(r3(v))} [m³]` : `${p2(v)} [m³]`;
   const gen = () => until(() => ({ p:pick(ps)*1e5, dV:pick(dVs) }), o => isClean(o.p*o.dV, 2));
+  // 符号付きの値（TeX）：負はかっこ付き
+  const dvT = v => v < 0 ? `(-${p2(-v)})` : `(+${p2(v)})`;
+  const wT = v => v < 0 ? `(-${sciT(-v)})` : `(+${sciT(v)})`;
+  const sT = v => (v < 0 ? '-' : '+') + sciT(Math.abs(v));
+  const DEF = `${M('W=-p\\Delta V')}　（W：気体がされる仕事、体積が増加するとき ${M('\\Delta V>0')}）`;
   const findW = () => {
     const o = gen(), W = fix(o.p*o.dV), expand = Math.random() < 0.5, askGas = Math.random() < 0.5;
-    const val = (expand === askGas) ? W : -W;
+    const dVs = expand ? o.dV : -o.dV, Win = expand ? -W : W;     // Win：気体がされた仕事
+    const val = askGas ? -Win : Win;
     return Q({ label:'仕事を求める',
       ctx:`圧力 ${sci(o.p)} [Pa] を一定に保ったまま、気体の体積が ${p2(o.dV)} [m³] ${expand ? '増加' : '減少'}した。`,
       text:`このとき、${askGas ? '気体が外部にした' : '外部が気体にした'}仕事は何 [J] か。`,
       correct:val, wrongs:[-val, val*10, val/10], fmt:v => `${sgnSci(v)} [J]`, pos:false,
-      exp:`仕事の大きさ　${M(`p\\Delta V=${sciT(o.p)}\\times ${p2(o.dV)}=${sciT(W)}`)} [J]<br>気体は${expand ? '膨張（外部を押した）' : '収縮（外部に押された）'}ので、${askGas ? '気体が外部にした' : '外部が気体にした'}仕事は <b>${val > 0 ? '正' : '負'}</b>。` });
+      exp:`${DEF}<br>体積が${expand ? '増加' : '減少'}したので ${M(`\\Delta V=${dvT(dVs).replace(/[()]/g,'')}`)} [m³]<br>${M(`W=-p\\Delta V=-${sciT(o.p)}\\times ${dvT(dVs)}=${sT(Win)}`)} [J]` +
+        (askGas ? `<br>気体が外部にした仕事は、気体がされた仕事の符号を変えたもの：${M(`-W=${sT(val)}`)} [J]`
+                : `<br>外部が気体にした仕事＝気体がされた仕事なので ${M(`${sT(val)}`)} [J]`) });
   };
   const findP = () => {
     const o = gen(), W = fix(o.p*o.dV), comp = Math.random() < 0.5;
+    const Win = comp ? W : -W, dVs = comp ? -o.dV : o.dV;
     return Q({ label:'圧力を求める',
       ctx: comp ? `圧力を一定に保ちながら、外部が気体に ${sci(W)} [J] の仕事をしたところ、気体の体積は ${p2(o.dV)} [m³] 減少した。`
                 : `圧力を一定に保ちながら、気体が外部に ${sci(W)} [J] の仕事をしたところ、気体の体積は ${p2(o.dV)} [m³] 増加した。`,
       text:'気体の圧力は何 [Pa] か。',
       correct:o.p, wrongs:[W*o.dV, o.dV/W, o.p*10], fmt:v => `${sci(v)} [Pa]`,
-      exp:`${M('W=p\\Delta V')} より　${M(`p=\\dfrac{W}{\\Delta V}=\\dfrac{${sciT(W)}}{${p2(o.dV)}}=${sciT(o.p)}`)} [Pa]` });
+      exp:`${DEF}<br>${comp ? '外部が気体に仕事をした' : '気体が外部に仕事をした（気体がされた仕事は負）'}ので ${M(`W=${sT(Win)}`)} [J]、体積が${comp ? '減少' : '増加'}したので ${M(`\\Delta V=${dvT(dVs).replace(/[()]/g,'')}`)} [m³]<br>${M(`p=-\\dfrac{W}{\\Delta V}=-\\dfrac{${wT(Win)}}{${dvT(dVs)}}=${sciT(o.p)}`)} [Pa]` });
   };
   const findV = () => {
     const o = gen(), W = fix(o.p*o.dV), comp = Math.random() < 0.5;
+    const Win = comp ? W : -W, dVs = comp ? -o.dV : o.dV;
     return Q({ label:'体積変化を求める',
       ctx: comp ? `圧力 ${sci(o.p)} [Pa] を一定に保ちながら、外部が気体に ${sci(W)} [J] の仕事をした。`
                 : `圧力 ${sci(o.p)} [Pa] を一定に保ちながら、気体が外部に ${sci(W)} [J] の仕事をした。`,
       text:`気体の体積は何 [m³] ${comp ? '減少' : '増加'}したか。`,
       correct:o.dV, wrongs:[o.dV*10, o.dV/10, o.p/W], fmt:fV,
-      exp:`${M('W=p\\Delta V')} より　${M(`\\Delta V=\\dfrac{W}{p}=\\dfrac{${sciT(W)}}{${sciT(o.p)}}=${p2(o.dV)}`)} [m³]` });
+      exp:`${DEF}<br>${comp ? '外部が気体に仕事をした' : '気体が外部に仕事をした（気体がされた仕事は負）'}ので ${M(`W=${sT(Win)}`)} [J]<br>${M(`\\Delta V=-\\dfrac{W}{p}=-\\dfrac{${wT(Win)}}{${sciT(o.p)}}=${dvT(dVs).replace(/[()]/g,'')}`)} [m³]<br>${M(`\\Delta V${comp ? '\\lt' : '\\gt'} 0`)} なので、体積は ${p2(o.dV)} m³ ${comp ? '減少' : '増加'}した。` });
   };
   return shuffle([findW, findP, findV]).map(f => f());
 }
@@ -615,7 +625,7 @@ const TABS = [
     formula:`${M('L=L_0(1+\\alpha\\Delta T)')}　　${M('V=V_0(1+\\beta\\Delta T)')}` },
   { no:'⑥', name:'圧力と仕事', gen:genPressureWork,
     items:['圧力と体積変化から仕事を求める','仕事から圧力または体積変化を求める（計3題）'],
-    formula:`${M('W=p\\Delta V')}（圧力一定）` },
+    formula:`${M('W=-p\\Delta V')}（圧力一定）<br>W：気体がされる仕事。体積が減少する（${M('\\Delta V\\lt 0')}）とき ${M('W>0')}` },
   { no:'⑦', name:'熱効率', gen:genEfficiency,
     items:['与えた熱と仕事から熱効率を求める','熱効率から仕事を求める（計3題）'],
     formula:`${M('e=\\dfrac{W}{Q}')}` }
